@@ -7,7 +7,7 @@ import pickle
 import pathlib
 import off_policy
 from dreamer import Dreamer, setup_dreamer, create_envs, count_steps, make_dataset, parse_dreamer_args
-
+import wandb
 
 class GCDreamer(Dreamer):
   def __init__(self, config, logger, dataset):
@@ -160,4 +160,10 @@ def main(logdir, config):
 if __name__ == '__main__':
 
   args, remaining = parse_dreamer_args()
+  print(args)
+  print(remaining)
+  wandb.init(project=remaining.task+"gcsl_preferences", name=f"{remaining.task}_{args.configs[1]}_{remaining.seed}", config={
+        'method': args.configs, 
+
+        })
   main(args.logdir, remaining)
