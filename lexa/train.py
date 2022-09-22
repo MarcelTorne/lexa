@@ -162,6 +162,7 @@ if __name__ == '__main__':
   args, remaining = parse_dreamer_args()
   print(args)
   print(remaining)
+
   wandb.init(project=remaining.task+"gcsl_preferences", name=f"{remaining.task}_{args.configs[1]}_{remaining.seed}", config={
         'method': args.configs, 
 

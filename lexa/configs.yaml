@@ -16,9 +16,9 @@ defaults:
 
   # Environment
   task: 'dmc_walker_walk'
-  size: [8] #[1, 1]
+  size: [2] #[1, 1]
   envs: 1
-  action_repeat: 2
+  action_repeat: 1 #2
   time_limit: 150
   prefill: 2500
   eval_noise: 0.0
