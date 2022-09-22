@@ -274,7 +274,7 @@ def process_episode(config, logger, mode, train_eps, eval_eps, episode):
   logger.scalar(f'{mode}/episodes', len(cache))
   logger.scalar(f'{mode}/distance', distance)
   
-  wandb.log({'TrainDistance':distance, 'TrainSuccess':episode['success'], 'timesteps': length})
+  wandb.log({'TrainDistance':distance, 'TrainSuccess':episode['total_success'], 'timesteps': length})
   for key in filter(lambda k: 'metric_' in k, episode):
 
     metric_min =  np.min(episode[key].astype(np.float64))
