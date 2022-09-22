@@ -16,6 +16,7 @@ class GCWorldModel(models.WorldModel):
   def __init__(self, step, config):
     super().__init__(step, config)
 
+    print("config value layers", config.value_layers)
     if config.pred_stoch_state:
       self.heads['stoch_state'] = networks.DenseHead(
           [self._config.dyn_stoch], config.value_layers, config.units, config.act, std='learned')
@@ -31,8 +32,10 @@ class GCWorldModel(models.WorldModel):
         self.embed_rev_pred = networks.get_mlp_model('embed_rp', [256, 128], self._config.skill_dim)
 
   def train(self, data):
+    print("before preprocessing shape", data['image'].shape)
     data = self.preprocess(data)
     with tf.GradientTape() as model_tape:
+      print("after preprocessing shape", data['image'].shape)
       embed = self.encoder(data)
       data['embed'] = tf.stop_gradient(embed)  # Needed for the embed head
       post, prior = self.dynamics.observe(embed, data['action'])
@@ -54,8 +57,13 @@ class GCWorldModel(models.WorldModel):
           inp = embed
         if not grad_head:
           inp = tf.stop_gradient(inp)
+        print("name", name)
+        print("data name", data[name].shape)
         pred = head(inp, tf.float32)
+        print("pred", pred, head)
+
         like = pred.log_prob(tf.cast(data[name], tf.float32))
+
         likes[name] = tf.reduce_mean(like) * self._scales.get(name, 1.0)
       model_loss = kl_loss - sum(likes.values())
       if self._config.latent_constraint == 'consecutive_state_l2':

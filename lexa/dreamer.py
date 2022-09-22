@@ -67,7 +67,9 @@ class Dreamer(tools.Module):
         plan2explore=lambda: expl.Plan2Explore(config, self._wm, reward),
     )[config.expl_behavior]()
     # Train step to initialize variables including optimizer statistics.
-    self._train(next(self._dataset))
+    next_dataset = next(self._dataset)
+    print("Next dataset", next_dataset)
+    self._train(next_dataset)
 
   def __call__(self, obs, reset, state=None, training=True):
     step = self._step.numpy().item()
@@ -221,6 +223,12 @@ def make_env(config, logger, mode, train_eps, eval_eps, use_goal_idx=False, log_
   elif config.task == 'kitchen':
     env = envs.KitchenEnv(config.action_repeat, use_goal_idx, log_per_goal)
 
+  elif config.task == 'kitchenSeq':
+    print("Kitchen sequential")
+    env = envs.KitchenEnvSeq(config.action_repeat, use_goal_idx, log_per_goal)
+
+  elif config.task == "pointmass_rooms":
+    env = envs.PointmassGoalEnv(config.action_repeat, use_goal_idx, log_per_goal)
   elif config.task == 'joint':
    
     kitchen_env = envs.KitchenEnv(config.action_repeat, use_goal_idx, False)
@@ -246,6 +254,7 @@ def process_episode(config, logger, mode, train_eps, eval_eps, episode):
   filename = tools.save_episodes(directory, [episode])[0]
   length = len(episode['reward']) - 1
   score = float(episode['reward'].astype(np.float64).sum())
+  distance = float(episode['total_distance'].astype(np.float64).mean())
   video = episode['image']
   if mode == 'eval':
     cache.clear()
@@ -258,10 +267,12 @@ def process_episode(config, logger, mode, train_eps, eval_eps, episode):
         del cache[key]
     logger.scalar('dataset_size', total + length)
   cache[str(filename)] = episode
-  print(f'{mode.title()} episode has {length} steps and return {score:.1f}.')
+  print(f'{mode.title()} episode has {length} steps and return {score:.1f}., distance {distance:.3f}')
   logger.scalar(f'{mode}/return', score)
   logger.scalar(f'{mode}/length', length)
   logger.scalar(f'{mode}/episodes', len(cache))
+  logger.scalar(f'{mode}/distance', distance)
+
   for key in filter(lambda k: 'metric_' in k, episode):
 
     metric_min =  np.min(episode[key].astype(np.float64))

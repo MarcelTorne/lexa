@@ -134,8 +134,8 @@ class Logger:
         tf.summary.scalar('scalars/' + name, value, self.step)
       for name, value in self._images.items():
         tf.summary.image(name, value, self.step)
-      for name, value in self._videos.items():
-        video_summary(name, value, self.step)
+      #for name, value in self._videos.items():
+        #video_summary(name, value, self.step)
     self._writer.flush()
     self._scalars = {}
     self._images = {}

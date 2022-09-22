@@ -12,10 +12,11 @@ class WorldModel(tools.Module):
     self._step = step
     self._config = config
     self._float = prec.global_policy().compute_dtype
-    encoder_cls = dict(vanilla=networks.ConvEncoder,
-                       with_state=networks.ConvEncoderWithState)[config.encoder_cls]
-    self.encoder = encoder_cls(config.cnn_depth, config.act, config.encoder_kernels)
+    encoder_cls = dict(vanilla=networks.FCEncoder,
+                       with_state=networks.FCEncoderWithState)[config.encoder_cls]
+    self.encoder = encoder_cls(config.cnn_depth, config.act)#, config.encoder_kernels)
     self.embed_size = self.encoder.embed_size
+    print("embed size", self.embed_size)
     self.dynamics = networks.RSSM(
         config.dyn_stoch, config.dyn_deter, config.dyn_hidden,
         config.dyn_input_layers, config.dyn_output_layers, config.dyn_shared,
@@ -24,9 +25,10 @@ class WorldModel(tools.Module):
         'stoch' if config.gc_input == 'feat_stoch' else 'full' )
     self.heads = {}
     channels = (1 if config.atari_grayscale else 3)
-    shape = config.size + (channels,)
-    self.heads['image'] = networks.ConvDecoder(
-        config.cnn_depth, config.act, shape, config.decoder_kernels,
+    shape = config.size #+ (channels,)
+    print("shape outside", shape)
+    self.heads['image'] = networks.FCDecoder(
+        config.cnn_depth, config.act, shape, #config.decoder_kernels,
         config.decoder_thin)
     if config.pred_reward:
       self.heads['reward'] = networks.DenseHead(
@@ -78,11 +80,12 @@ class WorldModel(tools.Module):
 
   @tf.function
   def preprocess(self, obs):
+    print("observation in preprocess", obs['image'])
     dtype = prec.global_policy().compute_dtype
     obs = obs.copy()
     for k in obs.keys():
       if 'image' in k:
-        obs[k] = tf.cast(obs[k], dtype) / 255.0 - 0.5
+        obs[k] = tf.cast(obs[k], dtype) #/ 255.0 - 0.5
     if self._config.clip_rewards[0] == 'd':
       # TODO check that d is followed by a number
       r_transform = lambda r: r / float(self._config.clip_rewards[1:])

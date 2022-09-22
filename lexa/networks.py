@@ -183,6 +183,7 @@ class RSSM(tools.Module):
     loss *= scale
     return loss, value
 
+"""
 class GC_Encoder(tools.Module):
   def __init__(
       self, depth=8, act=tf.nn.leaky_relu, kernels=(4, 4, 4, 4)):
@@ -201,6 +202,29 @@ class GC_Encoder(tools.Module):
     x = self.get('h3', Conv, 4 * self._depth, self._kernels[2], **kwargs)(x)
     x = self.get('bn2', Bn, axis = -1)(x)
     x = self.get('h4', Conv, 8 * self._depth, self._kernels[3], **kwargs)(x)
+    x = tf.reshape(x, [x.shape[0], np.prod(x.shape[1:])])
+    shape = tf.concat([tf.shape(gc_obs)[:-3], [x.shape[-1]]], 0)
+    return tf.reshape(x, shape)
+
+"""
+
+class GC_Encoder(tools.Module):
+  def __init__(
+      self, depth=8, act=tf.nn.leaky_relu, kernels=(4, 4, 4, 4)):
+    self._act = act
+    self._depth = depth
+    self._kernels = kernels
+
+  def __call__(self, gc_obs):
+    kwargs = dict(strides=2, activation=self._act)
+    Dense = tfkl.Dense
+    x = tf.reshape(gc_obs, (-1,) + tuple(gc_obs.shape[-3:]))
+    x = self.get('h1', Dense, 1 * self._depth, **kwargs)(x)
+    x = self.get('h2', Dense, 2 * self._depth, **kwargs)(x)
+    x = self.get(f'fc_bn_1', tfkl.BatchNormalization, axis = -1)(x)
+    x = self.get('h3', Dense, 4 * self._depth, self._kernels[2], **kwargs)(x)
+    x = self.get(f'fc_bn_2', tfkl.BatchNormalization, axis = -1)(x)
+    x = self.get('h4', Dense, 8 * self._depth, self._kernels[3], **kwargs)(x)
     x = tf.reshape(x, [x.shape[0], np.prod(x.shape[1:])])
     shape = tf.concat([tf.shape(gc_obs)[:-3], [x.shape[-1]]], 0)
     return tf.reshape(x, shape)
@@ -284,6 +308,32 @@ class GC_Actor(tools.Module):
     x = self.get(f'hout', tfkl.Dense, self._size)(x)
     return tfkl.Activation('tanh')(x)
 
+class FCEncoder(tools.Module):
+  def __init__(
+      self, depth=32, act=tf.nn.relu, ):
+    self._act = act
+    self._depth = depth
+    self.embed_size = depth * 8 # 32
+
+  def __call__(self, obs):
+    kwargs = dict(activation=self._act)
+    Dense = tfkl.Dense
+    x = tf.reshape(obs['image'], (-1,) + tuple(obs['image'].shape[-1:]))
+    print("image", obs['image'].shape)
+    print("fist x", x.shape)
+    x = self.get('h1', Dense, 1 * self._depth,  **kwargs)(x)
+    x = self.get('h2', Dense, 2 * self._depth,  **kwargs)(x)
+    x = self.get('h3', Dense, 4 * self._depth,  **kwargs)(x)
+    x = self.get('h4', Dense, 8 * self._depth,  **kwargs)(x)
+    print("final" , x.shape)
+    x = tf.reshape(x, [x.shape[0], np.prod(x.shape[1:])])
+    print("final 2")
+    shape = tf.concat([tf.shape(obs['image'])[:-1], [x.shape[-1]]], 0) # TODO: marcel check this
+    print(shape)
+    emb = tf.reshape(x, shape)
+    print(emb.shape)
+    return emb
+
 class ConvEncoder(tools.Module):
 
   def __init__(
@@ -305,6 +355,25 @@ class ConvEncoder(tools.Module):
     shape = tf.concat([tf.shape(obs['image'])[:-3], [x.shape[-1]]], 0)
     return tf.reshape(x, shape)
   
+class FCEncoderWithState(tools.Module):
+
+  def __init__(
+      self, depth=32, act=tf.nn.relu, ):
+    self._act = act
+    self._depth = depth
+    self.embed_size = depth * 32 + 9
+
+  def __call__(self, obs):
+    kwargs = dict(activation=self._act)
+    Dense = tfkl.Dense
+    x = tf.reshape(obs['image'], (-1,) + tuple(obs['image'].shape))
+    x = self.get('h1', Dense, 1 * self._depth, **kwargs)(x)
+    x = self.get('h2', Dense, 2 * self._depth,  **kwargs)(x)
+    x = self.get('h3', Dense, 4 * self._depth,  **kwargs)(x)
+    x = self.get('h4', Dense, 8 * self._depth,  **kwargs)(x)
+    x = tf.reshape(x, [x.shape[0], -1]) # TODO: check these shapes
+    shape = tf.concat([tf.shape(obs['image'])[:-3], [x.shape[-1]]], 0)
+    return tf.concat([tf.reshape(x, shape), obs['state'][..., :]], -1)
 
 class ConvEncoderWithState(tools.Module):
 
@@ -352,6 +421,35 @@ class ConvDecoder(tools.Module):
     x = self.get('h3', ConvT, 2 * self._depth, self._kernels[1], **kwargs)(x)
     x = self.get('h4', ConvT, 1 * self._depth, self._kernels[2], **kwargs)(x)
     x = self.get('h5', ConvT, self._shape[-1], self._kernels[3], strides=2)(x)
+    mean = tf.reshape(x, tf.concat([tf.shape(features)[:-1], self._shape], 0))
+    if dtype:
+      mean = tf.cast(mean, dtype)
+    return tfd.Independent(tfd.Normal(mean, 1), len(self._shape))
+
+class FCDecoder(tools.Module):
+
+  def __init__(
+      self, depth=32, act=tf.nn.relu, shape=(8,), 
+      thin=True):
+    self._act = act
+    self._depth = depth
+    self._shape = shape
+    self._thin = thin
+
+  def __call__(self, features, dtype=None):
+    kwargs = dict( activation=self._act)
+    Dense = tfkl.Dense
+    print("shape", self._shape)
+    if self._thin:
+      x = self.get('h1', tfkl.Dense, 32 * self._depth, None)(features)
+      x = tf.reshape(x, [-1, 32 * self._depth])
+    else:
+      x = self.get('h1', tfkl.Dense, 128 * self._depth, None)(features)
+      x = tf.reshape(x, [-1, 32 * self._depth])
+    x = self.get('h2', Dense, 4 * self._depth, **kwargs)(x)
+    x = self.get('h3', Dense, 2 * self._depth, **kwargs)(x)
+    x = self.get('h4', Dense, 1 * self._depth, **kwargs)(x)
+    x = self.get('h5', Dense, self._shape[-1])(x)
     mean = tf.reshape(x, tf.concat([tf.shape(features)[:-1], self._shape], 0))
     if dtype:
       mean = tf.cast(mean, dtype)

@@ -35,7 +35,7 @@ class Atari:
   def observation_space(self):
     return gym.spaces.Dict({
         'image': self._env.observation_space,
-        'ram': gym.spaces.Box(0, 255, (128,), np.uint8),
+        'ram': gym.spaces.Box(-8, 8, (128,), np.float32),
     })
 
   @property

@@ -16,7 +16,7 @@ defaults:
 
   # Environment
   task: 'dmc_walker_walk'
-  size: [64, 64]
+  size: [8] #[1, 1]
   envs: 1
   action_repeat: 2
   time_limit: 150
@@ -47,6 +47,7 @@ defaults:
   actor_layers: 4
   act: 'elu'
   cnn_depth: 32
+  dense_depth: 4
   encoder_kernels: [4, 4, 4, 4]
   decoder_kernels: [5, 5, 6, 6]
   decoder_thin: True
@@ -159,6 +160,8 @@ defaults:
   dd_loss : 'regression'
   dd_prob_balance: 1.0
 
+
+
 lexa_temporal:
   gc_reward: 'dynamical_distance'
   pred_embed: True
@@ -195,5 +198,4 @@ v2:
   reward_layers: 4
   weight_decay: 1e-6
   imag_gradient: 'both'
-
 

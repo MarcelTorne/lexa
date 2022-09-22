@@ -79,9 +79,11 @@ def process_eps_data(eps_data):
   return new_data
 
 def main(logdir, config):
+
   logdir, logger = setup_dreamer(config, logdir)
   eval_envs, eval_eps, train_envs, train_eps, acts = create_envs(config, logger)
-
+  #print(train_envs[0])
+  #print(train_eps)
   prefill = max(0, config.prefill - count_steps(config.traindir))
   print(f'Prefill dataset ({prefill} steps).')
   random_agent = lambda o, d, s: ([acts.sample() for _ in d], s)
@@ -92,17 +94,20 @@ def main(logdir, config):
 
   print('Simulate agent.')
   train_dataset = make_dataset(train_eps, config)
+  #print(train_dataset['reward'])
   eval_dataset = iter(make_dataset(eval_eps, config))
   agent = GCDreamer(config, logger, train_dataset)
   if (logdir / 'variables.pkl').exists():
     agent.load(logdir / 'variables.pkl')
     agent._should_pretrain._once = False
 
+  print("here1")
   pathlib.Path(logdir / "distance_func_logs_trained_model").mkdir(parents=True, exist_ok = True)
 
   state = None
   assert len(eval_envs) == 1
   while agent._step.numpy().item() < config.steps:
+    print("here 2")
     logger.write()
     print('Start gc evaluation.')
     executions = []
@@ -153,5 +158,6 @@ def main(logdir, config):
 
 
 if __name__ == '__main__':
+
   args, remaining = parse_dreamer_args()
   main(args.logdir, remaining)
