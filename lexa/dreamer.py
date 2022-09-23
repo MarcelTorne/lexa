@@ -228,6 +228,10 @@ def make_env(config, logger, mode, train_eps, eval_eps, use_goal_idx=False, log_
     print("Kitchen sequential")
     env = envs.KitchenEnvSeq(config.action_repeat, use_goal_idx, log_per_goal)
 
+  elif config.task == "pusher":
+    print("Pusher")
+    env = envs.SawyerPushGoalEnv(config.action_repeat, use_goal_idx, log_per_goal)
+    
   elif config.task == "pointmass_rooms":
     env = envs.PointmassGoalEnv(config.action_repeat, use_goal_idx, log_per_goal)
   elif config.task == 'joint':
